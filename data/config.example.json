@@ -1,0 +1,14 @@
+{
+  "weather": {
+    "city": "Lyon",
+    "openweathermap_api_key": ""
+  },
+  "quick_links": [
+    {"name": "ENT", "url": "https://ent.univ-lyon.fr"},
+    {"name": "Moodle", "url": "https://moodle.univ-lyon.fr"},
+    {"name": "GitLab", "url": "https://gitlab.com"},
+    {"name": "GitHub", "url": "https://github.com"},
+    {"name": "Gmail", "url": "https://gmail.com"},
+    {"name": "Drive", "url": "https://drive.google.com"}
+  ]
+}

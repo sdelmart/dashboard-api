@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-grid">
+  <!-- MÉTÉO -->
+  <section class="card weather-card">
+    <h2>🌤️ Météo</h2>
+    <div id="weather-content">
+      <div class="loading">Chargement...</div>
+    </div>
+  </section>
+
+  <!-- TÂCHES -->
+  <section class="card todos-card">
+    <h2>✅ Tâches</h2>
+    <form id="todo-form" class="add-form">
+      <input type="text" id="todo-title" placeholder="Nouvelle tâche..." required />
+      <select id="todo-priority">
+        <option value="low">🟢 Faible</option>
+        <option value="medium" selected>🟡 Moyenne</option>
+        <option value="high">🔴 Haute</option>
+      </select>
+      <input type="date" id="todo-due" />
+      <button type="submit">Ajouter</button>
+    </form>
+    <ul id="todo-list" class="item-list"></ul>
+  </section>
+
+  <!-- LIENS RAPIDES -->
+  <section class="card links-card">
+    <h2>🔗 Liens Rapides</h2>
+    <div id="links-content" class="links-grid"></div>
+  </section>
+
+  <!-- OBJECTIFS QUOTIDIENS -->
+  <section class="card goals-card">
+    <h2>🎯 Objectifs du Jour</h2>
+    <div id="goals-stats" class="stats"></div>
+    <form id="goal-form" class="add-form">
+      <input type="text" id="goal-text" placeholder="Nouvel objectif..." maxlength="100" />
+      <button type="submit">Ajouter</button>
+    </form>
+    <ul id="goals-list" class="item-list"></ul>
+  </section>
+
+  <!-- RAPPELS -->
+  <section class="card reminders-card">
+    <h2>⏰ Rappels</h2>
+    <form id="reminder-form" class="add-form">
+      <input type="text" id="reminder-title" placeholder="Titre du rappel..." required />
+      <input type="date" id="reminder-date" required />
+      <select id="reminder-type">
+        <option value="general">Général</option>
+        <option value="exam">Examen</option>
+        <option value="assignment">Rendu</option>
+        <option value="meeting">Réunion</option>
+      </select>
+      <button type="submit">Ajouter</button>
+    </form>
+    <ul id="reminders-list" class="item-list"></ul>
+  </section>
+
+  <!-- STATISTIQUES -->
+  <section class="card stats-card">
+    <h2>📊 Statistiques</h2>
+    <div id="overall-stats">
+      <div class="stat-item">
+        <span class="stat-label">Tâches complétées</span>
+        <span class="stat-value" id="stat-todos-completed">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Objectifs atteints</span>
+        <span class="stat-value" id="stat-goals-completed">0%</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Rappels urgents</span>
+        <span class="stat-value" id="stat-urgent-reminders">0</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ============= UTILITAIRES =============
+const API = {
+  async get(url) {
+    const res = await fetch(url);
+    return res.json();
+  },
+  async post(url, data) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+  async put(url, data) {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+  async delete(url) {
+    await fetch(url, {method: 'DELETE'});
+  }
+};
+
+// ============= MÉTÉO =============
+async function loadWeather() {
+  try {
+    const data = await API.get('/api/weather');
+    const content = document.getElementById('weather-content');
+    
+    if (data.error) {
+      content.innerHTML = `<div class="error-msg-small">${data.error}</div>`;
+    } else {
+      content.innerHTML = `
+        <div class="weather-display-compact">
+          <div class="weather-main">
+            <span class="weather-temp-compact">${data.temperature}°C</span>
+            <span class="weather-desc">${data.description}</span>
+          </div>
+          <div class="weather-extra">
+            <small>💧 ${data.humidity}%</small>
+          </div>
+        </div>
+      `;
+    }
+  } catch (e) {
+    document.getElementById('weather-content').innerHTML = '<div class="error-msg">Erreur de chargement</div>';
+  }
+}
+
+// ============= TÂCHES =============
+async function loadTodos() {
+  const todos = await API.get('/api/todos');
+  const list = document.getElementById('todo-list');
+  list.innerHTML = '';
+  
+  todos.forEach(t => {
+    const li = document.createElement('li');
+    li.className = `todo-item priority-${t.priority} ${t.completed ? 'completed' : ''}`;
+    li.innerHTML = `
+      <input type="checkbox" class="toggle-complete" ${t.completed ? 'checked' : ''} data-id="${t.id}" />
+      <div class="item-content">
+        <span class="item-title">${t.title}</span>
+        <span class="item-meta">${t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢'} ${t.due ? '📅 ' + t.due : ''}</span>
+      </div>
+      <button class="btn-delete" data-id="${t.id}">🗑️</button>
+    `;
+    list.appendChild(li);
+  });
+  updateStats();
+}
+
+document.getElementById('todo-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = document.getElementById('todo-title').value.trim();
+  const priority = document.getElementById('todo-priority').value;
+  const due = document.getElementById('todo-due').value || null;
+  
+  await API.post('/api/todos', {title, priority, due});
+  document.getElementById('todo-title').value = '';
+  document.getElementById('todo-due').value = '';
+  await loadTodos();
+});
+
+document.getElementById('todo-list').addEventListener('click', async (e) => {
+  if (e.target.classList.contains('toggle-complete')) {
+    const id = e.target.dataset.id;
+    const completed = e.target.checked;
+    await API.put(`/api/todos/${id}`, {completed});
+    await loadTodos();
+  } else if (e.target.classList.contains('btn-delete')) {
+    const id = e.target.dataset.id;
+    await API.delete(`/api/todos/${id}`);
+    await loadTodos();
+  }
+});
+
+// ============= LIENS RAPIDES =============
+async function loadLinks() {
+  const links = await API.get('/api/links');
+  const content = document.getElementById('links-content');
+  content.innerHTML = links.map(l => 
+    `<a href="${l.url}" target="_blank" class="link-item">${l.name}</a>`
+  ).join('');
+}
+
+// ============= OBJECTIFS QUOTIDIENS =============
+async function loadGoals() {
+  const data = await API.get('/api/goals');
+  const list = document.getElementById('goals-list');
+  const stats = document.getElementById('goals-stats');
+  
+  list.innerHTML = '';
+  data.goals.forEach(g => {
+    const li = document.createElement('li');
+    li.className = `goal-item ${g.completed ? 'completed' : ''}`;
+    li.innerHTML = `
+      <input type="checkbox" class="toggle-goal" ${g.completed ? 'checked' : ''} data-id="${g.id}" />
+      <span class="item-title">${g.text}</span>
+    `;
+    list.appendChild(li);
+  });
+  
+  const goalStats = await API.get('/api/goals/stats');
+  stats.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${goalStats.percentage}%"></div></div>
+                     <p>${goalStats.completed}/${goalStats.total} objectifs complétés (${goalStats.percentage}%)</p>`;
+}
+
+document.getElementById('goal-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = document.getElementById('goal-text').value.trim();
+  if (!text) return;
+  
+  const result = await API.post('/api/goals', {text});
+  if (result.error) {
+    alert(result.error);
+  } else {
+    document.getElementById('goal-text').value = '';
+    await loadGoals();
+  }
+});
+
+document.getElementById('goals-list').addEventListener('click', async (e) => {
+  if (e.target.classList.contains('toggle-goal')) {
+    const id = parseInt(e.target.dataset.id);
+    await API.post(`/api/goals/${id}/toggle`, {});
+    await loadGoals();
+    updateStats();
+  }
+});
+
+// ============= RAPPELS =============
+async function loadReminders() {
+  const reminders = await API.get('/api/reminders');
+  const list = document.getElementById('reminders-list');
+  list.innerHTML = '';
+  
+  reminders.forEach(r => {
+    const li = document.createElement('li');
+    const urgencyClass = r.urgency || 'normal';
+    const urgencyEmoji = {
+      'overdue': '🔴',
+      'today': '⚠️',
+      'urgent': '🟠',
+      'soon': '🟡',
+      'normal': '🟢'
+    }[urgencyClass] || '⚪';
+    
+    li.className = `reminder-item urgency-${urgencyClass} ${r.completed ? 'completed' : ''}`;
+    li.innerHTML = `
+      <input type="checkbox" class="toggle-reminder" ${r.completed ? 'checked' : ''} data-id="${r.id}" />
+      <div class="item-content">
+        <span class="item-title">${r.title}</span>
+        <span class="item-meta">${urgencyEmoji} ${r.due_date} | ${r.type}</span>
+      </div>
+      <button class="btn-delete" data-id="${r.id}">🗑️</button>
+    `;
+    list.appendChild(li);
+  });
+  updateStats();
+}
+
+document.getElementById('reminder-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = document.getElementById('reminder-title').value.trim();
+  const due_date = document.getElementById('reminder-date').value;
+  const type = document.getElementById('reminder-type').value;
+  
+  await API.post('/api/reminders', {title, due_date, type});
+  document.getElementById('reminder-title').value = '';
+  document.getElementById('reminder-date').value = '';
+  await loadReminders();
+});
+
+document.getElementById('reminders-list').addEventListener('click', async (e) => {
+  if (e.target.classList.contains('toggle-reminder')) {
+    const id = e.target.dataset.id;
+    await API.post(`/api/reminders/${id}/toggle`, {});
+    await loadReminders();
+  } else if (e.target.classList.contains('btn-delete')) {
+    const id = e.target.dataset.id;
+    await API.delete(`/api/reminders/${id}`);
+    await loadReminders();
+  }
+});
+
+// ============= STATISTIQUES =============
+async function updateStats() {
+  const todos = await API.get('/api/todos');
+  const completedTodos = todos.filter(t => t.completed).length;
+  document.getElementById('stat-todos-completed').textContent = `${completedTodos}/${todos.length}`;
+  
+  const goalStats = await API.get('/api/goals/stats');
+  document.getElementById('stat-goals-completed').textContent = `${goalStats.percentage}%`;
+  
+  const reminders = await API.get('/api/reminders');
+  const urgentReminders = reminders.filter(r => !r.completed && ['overdue', 'today', 'urgent'].includes(r.urgency)).length;
+  document.getElementById('stat-urgent-reminders').textContent = urgentReminders;
+}
+
+// ============= CHARGEMENT INITIAL =============
+loadWeather();
+loadTodos();
+loadLinks();
+loadGoals();
+loadReminders();
+
+// Rafraîchir la météo toutes les 30 minutes
+setInterval(loadWeather, 30 * 60 * 1000);
+</script>
+{% endblock %}

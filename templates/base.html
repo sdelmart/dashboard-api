@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{% block title %}Mon Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>📚 Dashboard Étudiant</h1>
+        <p class="tagline">Gérez votre productivité quotidienne</p>
+      </div>
+    </header>
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+    <footer>
+      <div class="container">
+        <p>Dashboard Personnel - Restez organisé et productif 🎯</p>
+      </div>
+    </footer>
+  </body>
+</html>
