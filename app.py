@@ -32,6 +32,16 @@ links_mgr = QuickLinksManager(CONFIG_FILE)
 
 # Charger la config pour la météo
 def get_weather_config() -> dict[str, Any]:
+    """Charge la config météo depuis la variable d'environnement ou config.json"""
+    # Priorité 1: Variable d'environnement (pour Render/production)
+    api_key_env = os.environ.get('OPENWEATHER_API_KEY')
+    if api_key_env:
+        return {
+            'openweathermap_api_key': api_key_env,
+            'city': os.environ.get('WEATHER_CITY', 'Limoges')
+        }
+    
+    # Priorité 2: Fichier config.json (pour développement local)
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
             config = json.load(f)
